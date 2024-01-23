@@ -1,13 +1,14 @@
-from flask import Flask, Response, render_template, request, redirect, flash
+from flask import Flask, Response, render_template, request, redirect, flash, session
 from flask_debugtoolbar import DebugToolbarExtension
 from surveys import satisfaction_survey
 
 app=Flask(__name__)
 app.config['SECRET_KEY'] = "secretkey"
 app.debug = True
+app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 debug = DebugToolbarExtension(app)
 
-RESPONSES = []
+# RESPONSES = []
 
 @app.route("/")
 def survey_instructions():
@@ -15,20 +16,21 @@ def survey_instructions():
 
 @app.route("/start")
 def survey_start():
-    RESPONSES = []
+    # RESPONSES = []
+    session["responses"] = []
     return redirect("questions/0")
 
 @app.route("/questions/<int:n>")
 def ask_question(n):
-    if (RESPONSES == None):
+    if (session["responses"] == None):
         return redirect("/")
     
-    if (len(RESPONSES) == len(satisfaction_survey.questions)):
+    if (len(session["responses"]) == len(satisfaction_survey.questions)):
         return redirect("/complete")
     
-    if (len(RESPONSES) != n):
+    if (len(session["responses"]) != n):
         flash(f"Invalid question: {n}")
-        return redirect(f"/questions/{len(RESPONSES)}")
+        return redirect(f"/questions/{len(session['responses'])}")
 
     return render_template("question.html", question=satisfaction_survey.questions[n])
 
@@ -38,10 +40,12 @@ def end_survey():
 
 @app.route("/answer", methods=["POST"])
 def parse_answer():
-    RESPONSES.append(request.form["answer"])
-    n = len(RESPONSES)
+    temp_session = session["responses"]
+    temp_session.append(request.form["answer"])
+    session["responses"] = temp_session
+    n = len(session["responses"])
     # n = request.form["n"]
-    if (len(RESPONSES) == len(satisfaction_survey.questions)):
+    if (len(session["responses"]) == len(satisfaction_survey.questions)):
         return redirect("/complete")
     else:
         return redirect(f"/questions/{n}")
